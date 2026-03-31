@@ -3,7 +3,18 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
+import nltk
 
+# Download required corpora for TextBlob
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+
+try:
+    nltk.data.find('corpora/movie_reviews')
+except LookupError:
+    nltk.download('movie_reviews')
 try:
     from textblob import TextBlob
     HAS_TEXTBLOB = True
