@@ -5,7 +5,7 @@ import numpy as np
 import nltk
 from textblob import download_corpora
 
-# ✅ FIX: Download NLP Data (runs once)
+# ✅ Download NLP data (only once)
 @st.cache_resource
 def download_nlp_data():
     nltk.download('punkt')
@@ -16,12 +16,11 @@ def download_nlp_data():
 
 download_nlp_data()
 
-# ✅ TextBlob Import
+# ✅ TextBlob or fallback
 try:
     from textblob import TextBlob
     HAS_TEXTBLOB = True
 except ModuleNotFoundError:
-    TextBlob = None
     HAS_TEXTBLOB = False
 
     class TextBlobFallback:
@@ -52,7 +51,6 @@ except ModuleNotFoundError:
 
             self._sentiment = SimpleNamespace(polarity=polarity, subjectivity=subjectivity)
 
-            # Sentence split FIXED
             self.sentences = []
             for s in self.text.replace("!", ".").replace("?", ".").split("."):
                 s = s.strip()
@@ -128,10 +126,58 @@ if st.button("Analyze"):
         c1.metric("Score", round(score, 3))
         c2.metric("Percentage", f"{percent:.1f}%")
 
-        # ─── Chart ───
-        fig, ax = plt.subplots()
-        ax.bar(["Score"], [score])
-        st.pyplot(fig)
+        # ─── GRAPHS ───
+        st.markdown("### 📊 Visual Analysis")
+
+        col1, col2 = st.columns(2)
+
+        pos_val = max(0, score)
+        neg_val = max(0, -score)
+        neu_val = max(0, 1 - abs(score))
+
+        # Bar Chart
+        with col1:
+            fig1, ax1 = plt.subplots()
+            labels = ["Positive", "Neutral", "Negative"]
+            values = [pos_val, neu_val, neg_val]
+
+            ax1.bar(labels, values)
+            ax1.set_title("Sentiment Breakdown")
+            ax1.set_ylim(0, 1)
+
+            for i, v in enumerate(values):
+                ax1.text(i, v + 0.02, f"{round(v,2)}", ha='center')
+
+            st.pyplot(fig1)
+
+        # Pie Chart
+        with col2:
+            fig2, ax2 = plt.subplots()
+            sizes = [pos_val, neu_val, neg_val]
+            labels = ["Positive", "Neutral", "Negative"]
+
+            ax2.pie(sizes, labels=labels, autopct="%1.0f%%", startangle=140)
+            ax2.set_title("Distribution")
+
+            st.pyplot(fig2)
+
+        # Gauge
+        st.markdown("### 🎯 Polarity Gauge")
+
+        fig3, ax3 = plt.subplots(figsize=(6, 1.5))
+        gradient = np.linspace(0, 1, 256).reshape(1, -1)
+
+        ax3.imshow(gradient, aspect="auto", cmap=plt.cm.RdYlGn,
+                   extent=[-1, 1, -0.3, 0.3])
+
+        ax3.axvline(score, linewidth=3)
+        ax3.plot(score, 0, "o")
+
+        ax3.set_yticks([])
+        ax3.set_xticks([-1, -0.5, 0, 0.5, 1])
+        ax3.set_title("Polarity Score (-1 to +1)")
+
+        st.pyplot(fig3)
 
         # ─── Sentence Analysis ───
         st.markdown("---")
@@ -152,7 +198,7 @@ if st.button("Analyze"):
             st.write(f"{s_emoji} {s_label} (Score: {round(s_score,3)})")
             st.markdown("---")
 
-        # ─── Text Stats ───
+        # ─── Stats ───
         st.subheader("📝 Text Statistics")
 
         words = text.split()
