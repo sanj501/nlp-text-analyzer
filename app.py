@@ -1,12 +1,11 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
 import nltk
 from textblob import download_corpora
 
-# ✅ FIX: Download NLP Data (RUN ONLY ONCE)
+# ✅ FIX: Download NLP Data (runs once)
 @st.cache_resource
 def download_nlp_data():
     nltk.download('punkt')
@@ -17,7 +16,7 @@ def download_nlp_data():
 
 download_nlp_data()
 
-# ✅ FIX: Proper TextBlob import
+# ✅ TextBlob Import
 try:
     from textblob import TextBlob
     HAS_TEXTBLOB = True
@@ -34,6 +33,7 @@ except ModuleNotFoundError:
 
         def _evaluate(self):
             from types import SimpleNamespace
+
             pos_words = {"good","great","excellent","amazing","love","happy","positive","best","wonderful","fantastic","nice"}
             neg_words = {"bad","terrible","awful","hate","worst","poor","negative","disappoint","angry","frustrating"}
 
@@ -52,10 +52,17 @@ except ModuleNotFoundError:
 
             self._sentiment = SimpleNamespace(polarity=polarity, subjectivity=subjectivity)
 
-            # Sentence split
-            sentences = self.text.replace("!", ".").replace("?", ".").split(".")
-            self.sentences = [SimpleNamespace(sentiment=self._sentiment, __str__=lambda s=s: s.strip())
-                              for s in sentences if s.strip()]
+            # Sentence split FIXED
+            self.sentences = []
+            for s in self.text.replace("!", ".").replace("?", ".").split("."):
+                s = s.strip()
+                if s:
+                    self.sentences.append(
+                        SimpleNamespace(
+                            sentiment=self._sentiment,
+                            __str__=lambda s=s: s
+                        )
+                    )
 
         @property
         def sentiment(self):
@@ -101,6 +108,7 @@ if st.button("Analyze"):
         score = blob.sentiment.polarity
         percent = (score + 1) * 50
 
+        # Classification
         if score > threshold:
             label, emoji, css = "Positive", "😊", "positive"
         elif score < -threshold:
@@ -108,19 +116,73 @@ if st.button("Analyze"):
         else:
             label, emoji, css = "Neutral", "😐", "neutral"
 
-        # Verdict
+        # ─── Verdict ───
         st.markdown(f"""
         <div class="verdict-{css}">
         <h2>{emoji} {label}</h2>
         </div>
         """, unsafe_allow_html=True)
 
-        # Metrics
+        # ─── Metrics ───
         c1, c2 = st.columns(2)
         c1.metric("Score", round(score, 3))
         c2.metric("Percentage", f"{percent:.1f}%")
 
-        # Chart
+        # ─── Chart ───
         fig, ax = plt.subplots()
         ax.bar(["Score"], [score])
         st.pyplot(fig)
+
+        # ─── Sentence Analysis ───
+        st.markdown("---")
+        st.subheader("🔍 Sentence-Level Analysis")
+
+        for i, sentence in enumerate(blob.sentences):
+            s_text = str(sentence)
+            s_score = sentence.sentiment.polarity
+
+            if s_score > threshold:
+                s_label, s_emoji = "Positive", "😊"
+            elif s_score < -threshold:
+                s_label, s_emoji = "Negative", "😡"
+            else:
+                s_label, s_emoji = "Neutral", "😐"
+
+            st.write(f"{i+1}. {s_text}")
+            st.write(f"{s_emoji} {s_label} (Score: {round(s_score,3)})")
+            st.markdown("---")
+
+        # ─── Text Stats ───
+        st.subheader("📝 Text Statistics")
+
+        words = text.split()
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Words", len(words))
+        c2.metric("Characters", len(text))
+        c3.metric("Sentences", len(blob.sentences))
+
+        # ─── Table ───
+        st.subheader("📋 Sentence Table")
+
+        data = []
+        for i, sentence in enumerate(blob.sentences):
+            s_text = str(sentence)
+            s_score = sentence.sentiment.polarity
+
+            if s_score > threshold:
+                s_label = "Positive"
+            elif s_score < -threshold:
+                s_label = "Negative"
+            else:
+                s_label = "Neutral"
+
+            data.append({
+                "Sentence No": i+1,
+                "Sentence": s_text,
+                "Score": round(s_score, 3),
+                "Sentiment": s_label
+            })
+
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True)
