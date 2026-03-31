@@ -5,18 +5,21 @@ import pandas as pd
 import numpy as np
 import nltk
 
-packages = [
-    'punkt',
-    'wordnet',
-    'averaged_perceptron_tagger',
-    'brown'
-]
+def download_nltk():
+    resources = {
+        'tokenizers/punkt': 'punkt',
+        'corpora/wordnet': 'wordnet',
+        'corpora/brown': 'brown',
+        'taggers/averaged_perceptron_tagger': 'averaged_perceptron_tagger'
+    }
 
-for pkg in packages:
-    try:
-        nltk.data.find(pkg)
-    except LookupError:
-        nltk.download(pkg)
+    for path, pkg in resources.items():
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            nltk.download(pkg)
+
+download_nltk()
 
 try:
     from textblob import TextBlob
