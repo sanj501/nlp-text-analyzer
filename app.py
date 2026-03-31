@@ -5,9 +5,7 @@ import numpy as np
 import nltk
 from textblob import download_corpora
 
-# ─────────────────────────────────────────────
-# ✅ DOWNLOAD NLP DATA (RUN ONCE)
-# ─────────────────────────────────────────────
+# ✅ Download NLP data (only once)
 @st.cache_resource
 def download_nlp_data():
     nltk.download('punkt')
@@ -18,13 +16,11 @@ def download_nlp_data():
 
 download_nlp_data()
 
-# ─────────────────────────────────────────────
-# ✅ TEXTBLOB IMPORT + FALLBACK
-# ─────────────────────────────────────────────
+# ✅ TextBlob or fallback
 try:
     from textblob import TextBlob
     HAS_TEXTBLOB = True
-except:
+except ModuleNotFoundError:
     HAS_TEXTBLOB = False
 
     class TextBlobFallback:
@@ -32,9 +28,9 @@ except:
             self.text = text
             self.sentences = []
             self._sentiment = None
-            self._analyze()
+            self._evaluate()
 
-        def _analyze(self):
+        def _evaluate(self):
             from types import SimpleNamespace
 
             pos_words = {"good","great","excellent","amazing","love","happy","positive","best","wonderful","fantastic","nice"}
@@ -55,7 +51,6 @@ except:
 
             self._sentiment = SimpleNamespace(polarity=polarity, subjectivity=subjectivity)
 
-            # sentence split
             self.sentences = []
             for s in self.text.replace("!", ".").replace("?", ".").split("."):
                 s = s.strip()
@@ -74,14 +69,12 @@ except:
     def TextBlob(text):
         return TextBlobFallback(text)
 
-# ─────────────────────────────────────────────
-# 🎨 PAGE CONFIG
-# ─────────────────────────────────────────────
+
+# ─── PAGE CONFIG ───
 st.set_page_config(page_title="SentimentIQ", page_icon="🧠", layout="wide")
 
-# ─────────────────────────────────────────────
-# 🎨 CSS
-# ─────────────────────────────────────────────
+
+# ─── CSS ───
 st.markdown("""
 <style>
 .stApp { background-color: #0b0c10; color: #e8eaf0; }
@@ -92,16 +85,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# 🧠 SIDEBAR
-# ─────────────────────────────────────────────
+
+# ─── SIDEBAR ───
 with st.sidebar:
     st.title("🧠 SentimentIQ")
     threshold = st.slider("Threshold", 0.0, 0.5, 0.1)
 
-# ─────────────────────────────────────────────
-# 🚀 MAIN APP
-# ─────────────────────────────────────────────
+
+# ─── MAIN ───
 st.title("Sentiment Analysis App")
 
 text = st.text_area("Enter text")
@@ -115,7 +106,7 @@ if st.button("Analyze"):
         score = blob.sentiment.polarity
         percent = (score + 1) * 50
 
-        # sentiment label
+        # Classification
         if score > threshold:
             label, emoji, css = "Positive", "😊", "positive"
         elif score < -threshold:
@@ -123,70 +114,121 @@ if st.button("Analyze"):
         else:
             label, emoji, css = "Neutral", "😐", "neutral"
 
-        # ── Verdict ──
+        # ─── Verdict ───
         st.markdown(f"""
         <div class="verdict-{css}">
         <h2>{emoji} {label}</h2>
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Metrics ──
+        # ─── Metrics ───
         c1, c2 = st.columns(2)
         c1.metric("Score", round(score, 3))
         c2.metric("Percentage", f"{percent:.1f}%")
 
-        # ─────────────────────────
-        # 📊 BAR GRAPH
-        # ─────────────────────────
-        st.subheader("📊 Sentiment Graph")
-        fig, ax = plt.subplots()
-        ax.bar(["Score"], [score])
-        st.pyplot(fig)
+        # ─── GRAPHS ───
+        st.markdown("### 📊 Visual Analysis")
 
-        # ─────────────────────────
-        # 🥧 PIE CHART
-        # ─────────────────────────
-        st.subheader("📊 Distribution")
-        pos = max(0, score)
-        neg = max(0, -score)
-        neu = 1 - abs(score)
+        col1, col2 = st.columns(2)
 
-        fig2, ax2 = plt.subplots()
-        ax2.pie(
-            [pos, neu, neg],
-            labels=["Positive", "Neutral", "Negative"],
-            autopct="%1.1f%%"
-        )
-        st.pyplot(fig2)
+        pos_val = max(0, score)
+        neg_val = max(0, -score)
+        neu_val = max(0, 1 - abs(score))
 
-        # ─────────────────────────
-        # 🧠 WORD ANALYSIS
-        # ─────────────────────────
-        st.subheader("🔍 Word Analysis")
+        # Bar Chart
+        with col1:
+            fig1, ax1 = plt.subplots()
+            labels = ["Positive", "Neutral", "Negative"]
+            values = [pos_val, neu_val, neg_val]
 
-        pos_words = {"good","great","excellent","amazing","love","happy","positive","best","wonderful","fantastic","nice"}
-        neg_words = {"bad","terrible","awful","hate","worst","poor","negative","disappoint","angry","frustrating"}
+            ax1.bar(labels, values)
+            ax1.set_title("Sentiment Breakdown")
+            ax1.set_ylim(0, 1)
 
-        words = text.lower().split()
-        found_pos = [w for w in words if w.strip(".,!?;:") in pos_words]
-        found_neg = [w for w in words if w.strip(".,!?;:") in neg_words]
+            for i, v in enumerate(values):
+                ax1.text(i, v + 0.02, f"{round(v,2)}", ha='center')
 
-        c1, c2 = st.columns(2)
+            st.pyplot(fig1)
 
-        # ✅ FIXED ERROR HERE
-        pos_text = ", ".join(set(found_pos)) if found_pos else "None"
-        neg_text = ", ".join(set(found_neg)) if found_neg else "None"
+        # Pie Chart
+        with col2:
+            fig2, ax2 = plt.subplots()
+            sizes = [pos_val, neu_val, neg_val]
+            labels = ["Positive", "Neutral", "Negative"]
 
-        c1.write(f"✅ Positive Words: {pos_text}")
-        c2.write(f"❌ Negative Words: {neg_text}")
+            ax2.pie(sizes, labels=labels, autopct="%1.0f%%", startangle=140)
+            ax2.set_title("Distribution")
 
-        # ─────────────────────────
-        # 📝 TEXT STATS
-        # ─────────────────────────
-        st.subheader("📝 Text Stats")
-        words_list = text.split()
+            st.pyplot(fig2)
 
-        s1, s2, s3 = st.columns(3)
-        s1.metric("Words", len(words_list))
-        s2.metric("Characters", len(text))
-        s3.metric("Sentences", len(blob.sentences))
+        # Gauge
+        st.markdown("### 🎯 Polarity Gauge")
+
+        fig3, ax3 = plt.subplots(figsize=(6, 1.5))
+        gradient = np.linspace(0, 1, 256).reshape(1, -1)
+
+        ax3.imshow(gradient, aspect="auto", cmap=plt.cm.RdYlGn,
+                   extent=[-1, 1, -0.3, 0.3])
+
+        ax3.axvline(score, linewidth=3)
+        ax3.plot(score, 0, "o")
+
+        ax3.set_yticks([])
+        ax3.set_xticks([-1, -0.5, 0, 0.5, 1])
+        ax3.set_title("Polarity Score (-1 to +1)")
+
+        st.pyplot(fig3)
+
+        # ─── Sentence Analysis ───
+        st.markdown("---")
+        st.subheader("🔍 Sentence-Level Analysis")
+
+        for i, sentence in enumerate(blob.sentences):
+            s_text = str(sentence)
+            s_score = sentence.sentiment.polarity
+
+            if s_score > threshold:
+                s_label, s_emoji = "Positive", "😊"
+            elif s_score < -threshold:
+                s_label, s_emoji = "Negative", "😡"
+            else:
+                s_label, s_emoji = "Neutral", "😐"
+
+            st.write(f"{i+1}. {s_text}")
+            st.write(f"{s_emoji} {s_label} (Score: {round(s_score,3)})")
+            st.markdown("---")
+
+        # ─── Stats ───
+        st.subheader("📝 Text Statistics")
+
+        words = text.split()
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Words", len(words))
+        c2.metric("Characters", len(text))
+        c3.metric("Sentences", len(blob.sentences))
+
+        # ─── Table ───
+        st.subheader("📋 Sentence Table")
+
+        data = []
+        for i, sentence in enumerate(blob.sentences):
+            s_text = str(sentence)
+            s_score = sentence.sentiment.polarity
+
+            if s_score > threshold:
+                s_label = "Positive"
+            elif s_score < -threshold:
+                s_label = "Negative"
+            else:
+                s_label = "Neutral"
+
+            data.append({
+                "Sentence No": i+1,
+                "Sentence": s_text,
+                "Score": round(s_score, 3),
+                "Sentiment": s_label
+            })
+
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True)
