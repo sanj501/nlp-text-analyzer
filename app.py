@@ -3,6 +3,20 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
+import nltk
+
+packages = [
+    'punkt',
+    'wordnet',
+    'averaged_perceptron_tagger',
+    'brown'
+]
+
+for pkg in packages:
+    try:
+        nltk.data.find(pkg)
+    except LookupError:
+        nltk.download(pkg)
 
 try:
     from textblob import TextBlob
